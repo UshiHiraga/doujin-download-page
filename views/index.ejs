@@ -1,5 +1,19 @@
-<html>
-   <body>
-      Hello <%= foo %>
-   </body>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Download this doujin</title>
+</head>
+<body>
+    <form action="/download" method="post">
+        <h1> <%= code %></h1>
+        <input name="code" type="text" value="<%= code %>">
+
+        <input value="Down" type="submit">
+
+        
+
+    </form>
+</body>
 </html>
