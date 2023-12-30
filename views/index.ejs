@@ -1,19 +1,62 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Download this doujin</title>
+    <title>Doujins from nhentai.net</title>
 </head>
+
 <body>
-    <form action="/download" method="post">
-        <h1> <%= code %></h1>
-        <input name="code" type="text" value="<%= code %>">
+    <header>
+        <h1>Get doujins in PDF from nhentai.net</h1>
+    </header>
 
-        <input value="Down" type="submit">
-
-        
-
+    <form onsubmit="handleSubmit(event)">
+        <input name="code" type="text" placeholder="Insert nhentai url o nuke code" value="<%=code%>">
+        <input value="Find" type="submit">
     </form>
+
+    <section>
+
+    </section>
+
+    <style>
+        body,
+        form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        header,
+        form {
+            width: 80%;
+            background-color: aqua;
+        }
+
+        form>input[type="text"] {
+            color: red;
+        }
+
+        form>input[type="submit"] {
+            color: aqua;
+        }
+    </style>
+    <script>
+        async function handleSubmit(e) {
+            e.preventDefault();
+
+            let response = await fetch("/getInfoByCode", {
+                method: "POST",
+                body: new URLSearchParams(new FormData(e.srcElement)),
+            });
+            let doujinData = await response.json();
+
+            console.log(doujinData);
+        }
+    </script>
 </body>
+
 </html>
