@@ -1,63 +1,33 @@
 import express from "express";
-import createDocument from "./lib/image-to-pdf.js";
+import sharp from "sharp";
 import { ZenRows } from "zenrows";
 import { load as cheerio } from "cheerio";
-import sharp from "sharp";
-import { write, writeFile } from "fs";
+import { JSONFilePreset as createDatabase } from "lowdb/node"
+import createDocument from "./lib/image-to-pdf.js";
+import retryFetch from "./lib/retryable-fetch.js";
+import batchPromise from "./lib/batch-promise.js";
 
 const app = express();
 const port = 3721;
-
-function GetMetadataAndTransform() {
-
-
-
-    const scripts_array = Array.from(document.querySelectorAll("script"));
-    let script_text = scripts_array.find((e) => e.innerText.includes("window._gallery")).innerText;
-    if (!script_text) throw new Error("No pudimos encontrar los datos.");
-
-
-
-
-    return
-};
-
-
+const db = await createDatabase("db.json", {});
 
 app.set("view engine", "ejs");
+app.use(express.urlencoded());
 
-app.get("/", function (req, res) {
-    res.render('index', { foo: 'FOO' });
-});
+async function getInfoFromNhentai(nhentaiUrl) {
+    const client = new ZenRows(process.env.CLOUDFARE_SCRAPER_API_KEY);
+    const { data } = await client.get(nhentaiUrl, { "js_render": "true", "wait_for": "#cover" });
 
-app.get("/g/:code", async function (req, res) {
-    // res.render('download', { code: req.params.code });
-
-    const thisDoujinCode = req.params.code
-
-    // getInfo
-    // getLinks
-    // downloadImages
-    // createPDF
-
-    // Fetching nhentai page
-        const client = new ZenRows(process.env.CLOUDFARE_SCRAPER_API_KEY);
-        const { data } = await client.get(`https://nhentai.net/g/${thisDoujinCode}`, { "js_render": "true", "wait_for": "#cover" });
-        console.log(data);
-
-  
-
-    // Getting info
     let tree = cheerio(data);
     let inner = tree("script").toArray();
 
-    let scri = inner.find((e) => tree(e).text().includes("window._gallery"));
-    let script_text = tree(scri).text();
+    let script = inner.find((e) => tree(e).text().includes("window._gallery"));
+    let script_text = tree(script).text();
     script_text = script_text.replace("window._gallery = JSON.parse(\"", "").replace("\");", "");
     script_text = script_text.replace(/\\u0022/g, "\"").replace(/\n/g, "").replace(/\t/g, "");
     const original_data = JSON.parse(script_text);
 
-    function ConvertOriginalToImage(e) {
+    function extractImageTypeInfo(e) {
         let type = "jpg";
         let orientation = "horizontal";
         switch (e.t) {
@@ -81,28 +51,75 @@ app.get("/g/:code", async function (req, res) {
         return String.fromCodePoint(unicode_point_hex_value);
     };
 
-
-    let converted = {
+    return {
         repo_id: String(original_data.media_id),
         media_id: String(original_data.id),
         title: original_data.title.pretty.replace(/\\u[A-Fa-f0-9]{4}/g, replaceHandler),
         num_pages: original_data.num_pages,
-        pages: original_data.images.pages.map(ConvertOriginalToImage)
-    };
+        pages: original_data.images.pages.map(extractImageTypeInfo)
+    }
+}
 
+app.get("/", function (req, res) {
+    res.render('index', { "code": "" });
+});
+
+app.post("/getInfoByCode", async function (req, res) {
+
+    console.log("Here")
+    // Check value
+    if (!req.body.code || req.body.code === "") {
+        console.log("NO valid")
+        res.send(JSON.stringify({ "error": "Invalid input" }))
+    }
+
+    console.log("seach")
+    const thisDoujinCode = req.body.code;
+
+    let dataFromNhentai = "";
+    if (!db.data[thisDoujinCode]) {
+        
+
+        dataFromNhentai = await getInfoFromNhentai(`https://nhentai.net/g/${req.body.code}`);
+        console.log(dataFromNhentai)
+
+        db.data[dataFromNhentai.media_id] = dataFromNhentai;
+        await db.write();
+    } else {
+        console.log("exist")
+        dataFromNhentai = db.data[thisDoujinCode];
+    }
+
+    res.send(JSON.stringify(dataFromNhentai));
+})
+
+app.get("/g/:code", async function (req, res) {
+
+    const thisDoujinCode = req.params.code
+
+    // Checking info or fetching from hnentai.net
+    if (!db.data[thisDoujinCode]) {
+        console.log("Handle this")
+
+    }
+
+
+    let converted = db.data[thisDoujinCode];
+    console.log("Getted from db");
 
     // download Images
-    let ddd = Promise.all(converted.pages.map(async (e, i) => {
+    let ddd = batchPromise(converted.pages.map(async (e, i) => {
         //{ "type": "jpg", "width": 1075, "heigth": 1522, "orientation": "vertical" }
 
         const base_link = "https://i.nhentai.net";
         const url = `${base_link}/galleries/${converted.repo_id}/${i + 1}.${e.type}`;
 
-        let fff = await fetch(url);
+        let fff = await retryFetch(url);
         return await fff.arrayBuffer();
-    }));
+    }), 5);
 
     let solve = await ddd;
+    console.log(solve);
 
 
     // let tyys = solve.map(async (e) => {
@@ -139,10 +156,6 @@ app.get("/g/:code", async function (req, res) {
 
 
 });
-
-app.post("/download", function (req, res) {
-    res.send("Downloaded");
-})
 
 app.listen(port, function () {
     console.log("App has started.");
