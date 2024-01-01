@@ -1,0 +1,39 @@
+{
+    "id": "com.ushihiraga.doujindownload.app",
+    "name": "Doujin Download",
+    "short_name": "DD",
+    "description": "An app for downloading doujin in PDF from nhentai.net",
+    "start_url": "/",
+    "lang": "es-419",
+    "theme_color": "#3F8EA8",
+    "display": "standalone",
+    "icons": [
+        {
+            "src": "/favicon.ico",
+            "type": "image/x-icon",
+            "sizes": "32x32"
+        },
+        {
+            "src": "/icon-192.png",
+            "type": "image/png",
+            "sizes": "192x192"
+        },
+        {
+            "src": "/icon-512.png",
+            "type": "image/png",
+            "sizes": "512x512"
+        },
+        {
+            "src": "/icon-192-maskable.png",
+            "type": "image/png",
+            "sizes": "192x192",
+            "purpose": "maskable"
+        },
+        {
+            "src": "/icon-512-maskable.png",
+            "type": "image/png",
+            "sizes": "512x512",
+            "purpose": "maskable"
+        }
+    ]
+}
