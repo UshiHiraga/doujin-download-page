@@ -12,7 +12,7 @@ const port = 3721;
 const db = await createDatabase("db.json", {});
 
 app.set("view engine", "ejs");
-app.use(express.urlencoded());
+app.use(express.static("public"));
 
 async function getInfoFromNhentai(nhentaiUrl) {
     const client = new ZenRows(process.env.CLOUDFARE_SCRAPER_API_KEY);
