@@ -4,24 +4,63 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Doujins from nhentai.net</title>
+    <title>Doujin Download</title>
+
+    <%- include("partials/head"); %>
 </head>
 
 <body>
     <header>
-        <h1>Get doujins in PDF from nhentai.net</h1>
+        <a href="/">
+            <h1>Doujin Download</h1>
+        </a>
     </header>
 
-    <form onsubmit="handleSubmit(event)">
-        <input name="code" type="text" placeholder="Insert nhentai url o nuke code" value="<%=code%>">
-        <input value="Find" type="submit">
-    </form>
+    <section class="main-forms">
 
-    <section>
+        <h1>Download doujins in PDF from nhentai</h1>
 
+        <form action="/g/" class="find-doujin">
+            <input name="code" type="text" placeholder="Paste nhentai.net link or nuke code" value="<%=code%>">
+            <input value="Search" type="submit">
+        </form>
+
+        <% if (result) { %>
+            <form action="/download" target="_blank" class="result-doujin">
+                <input type="text" name="code" hidden value="<%=result.media_id%>">
+                <section class="result-doujin__image-holder">
+                    <img src="/cover/<%=result.repo_id%>">
+                </section>
+                <section class="result-doujin__info-holder">
+                    <%- include("partials/titleDetails", {title: "Title" , detail: result.title}); %>
+                        <%- include("partials/titleDetails", {title: "Pages" , detail: result.pages.length}); %>
+                            <%- include("partials/titleDetails", {title: "Nuke code" , detail: result.media_id}); %>
+
+                                <!-- <input value="Download" type="submit"> -->
+                                <a href="/download/<%=result.media_id%>" target="_blank">Download</a>
+                </section>
+            </form>
+            <% } %>
     </section>
 
     <style>
+        :root {
+            --body-color: #e5e5e5;
+            --background-color: #f3f3f3;
+            --accent-color: #3F8EA8;
+            --text-color: white;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --body-color: #0d0d0d;
+                --background-color: #1f1f1f;
+                --accent-color: #ed2553;
+                --text-color: white;
+            }
+        }
+
+
         body,
         form {
             display: flex;
@@ -31,32 +70,101 @@
         }
 
         header,
+        section,
         form {
             width: 80%;
-            background-color: aqua;
         }
 
-        form>input[type="text"] {
-            color: red;
+        header a {
+            color: var(--accent-color);
+            text-decoration: none;
         }
 
-        form>input[type="submit"] {
-            color: aqua;
+        section h1 {
+            color: var(--text-color);
+        }
+
+        form input {
+            border: none;
+            outline: none;
+            background-color: transparent;
+            color: white;
+        }
+
+        form input[type="submit"] {
+            background-color: var(--accent-color);
+            color: white;
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+
+
+        body {
+            background-color: var(--body-color);
+        }
+
+        .main-forms {
+            /* border: 1px solid #ddd; */
+            border-radius: 10px;
+            background-color: var(--background-color);
+            box-shadow: 0 1px 1px rgba(0, 0, 0, 0.05);
+            padding: 1rem;
+            margin-bottom: 1rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .find-doujin {
+            display: flex;
+            flex-direction: row;
+
+            border: 5px solid var(--accent-color);
+            border-radius: 5px;
+            margin: 0.5rem;
+
+            input[type="text"] {
+                padding: 0px 15px;
+                flex-grow: 1;
+            }
+        }
+
+        .result-doujin {
+            display: flex;
+            flex-direction: row;
+            align-items: flex-start;
+        }
+
+        .result-doujin>section {
+            padding: 1rem;
+        }
+
+        .result-doujin>.result-doujin__image-holder {
+            width: 30%;
+        }
+
+        .result-doujin__info-holder {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-gap: 1rem;
+        }
+
+        .result-doujin img {
+            width: 100%;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .title-details>p {
+            margin: 0px;
+            color: var(--text-color);
+        }
+
+        .title-details__title {
+            font-size: smaller;
         }
     </style>
-    <script>
-        async function handleSubmit(e) {
-            e.preventDefault();
-
-            let response = await fetch("/getInfoByCode", {
-                method: "POST",
-                body: new URLSearchParams(new FormData(e.srcElement)),
-            });
-            let doujinData = await response.json();
-
-            console.log(doujinData);
-        }
-    </script>
 </body>
 
 </html>
