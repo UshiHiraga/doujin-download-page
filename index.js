@@ -28,21 +28,15 @@ async function getInfoFromNhentai(nhentaiUrl) {
     const original_data = JSON.parse(script_text);
 
     function extractImageTypeInfo(e) {
-        let type = "jpg";
-        let orientation = "horizontal";
-        switch (e.t) {
-            case "j": type = "jpg"; break;
-            case "p": type = "png"; break;
-            case "g": type = "gif"; break;
+        const IMAGES_EXTENSIONS = {
+            "j": "jpg",
+            "p": "png",
+            "g": "gif"
         }
 
-        if (e.w < e.h) orientation = "vertical"
-
         return {
-            type,
-            width: e.w,
-            heigth: e.h,
-            orientation
+            type: IMAGES_EXTENSIONS[e.t] || "jpg",
+            ratio: e.w / e.h
         };
     };
 
