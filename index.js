@@ -49,52 +49,57 @@ async function getInfoFromNhentai(nhentaiUrl) {
         repo_id: String(original_data.media_id),
         media_id: String(original_data.id),
         title: original_data.title.pretty.replace(/\\u[A-Fa-f0-9]{4}/g, replaceHandler),
-        num_pages: original_data.num_pages,
         pages: original_data.images.pages.map(extractImageTypeInfo)
     }
 }
 
 app.get("/", function (req, res) {
-    res.render('index', { "code": "" });
+    res.render("index", { "code": "", "result": null })
 });
 
-app.post("/getInfoByCode", async function (req, res) {
+app.get(["/g/:code", "/g"], async function (req, res) {
+    const incomingCode = req.params.code || req.query.code;
+    console.log(incomingCode)
+    // Make checking
 
-    console.log("Here")
-    // Check value
-    if (!req.body.code || req.body.code === "") {
-        console.log("NO valid")
-        res.send(JSON.stringify({ "error": "Invalid input" }))
+    const ONLY_NUMBER_REGEX = /^[0-9]+$/gm;
+    const NHENTAI_URL_CODE = /\d+/gm
+    const NHENTAI_URL_FORMAT = /https:\/\/nhentai\.net\/g\/\d+./gm;
+
+    let definitiveCode;
+    if (ONLY_NUMBER_REGEX.test(incomingCode)) {
+        definitiveCode = incomingCode;
+    } else if (NHENTAI_URL_FORMAT.test(incomingCode)) {
+        definitiveCode = (NHENTAI_URL_CODE.exec(incomingCode))[0];
+    } else {
+        return res.send("error");
     }
 
-    console.log("seach")
-    const thisDoujinCode = req.body.code;
+    console.log(definitiveCode)
+
+
 
     let dataFromNhentai = "";
-    if (!db.data[thisDoujinCode]) {
-        
-
-        dataFromNhentai = await getInfoFromNhentai(`https://nhentai.net/g/${req.body.code}`);
-        console.log(dataFromNhentai)
-
+    if (!db.data[definitiveCode]) {
+        console.log("gettin")
+        dataFromNhentai = await getInfoFromNhentai(`https://nhentai.net/g/${definitiveCode}`);
         db.data[dataFromNhentai.media_id] = dataFromNhentai;
         await db.write();
     } else {
         console.log("exist")
-        dataFromNhentai = db.data[thisDoujinCode];
+        dataFromNhentai = db.data[definitiveCode];
     }
 
-    res.send(JSON.stringify(dataFromNhentai));
+    res.render("index", { "code": definitiveCode, "result": dataFromNhentai })
 })
 
-app.get("/g/:code", async function (req, res) {
+app.get("/download/:code", async function (req, res) {
 
     const thisDoujinCode = req.params.code
 
     // Checking info or fetching from hnentai.net
     if (!db.data[thisDoujinCode]) {
         console.log("Handle this")
-
     }
 
 
