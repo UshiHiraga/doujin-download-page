@@ -108,53 +108,34 @@ app.get("/download/:code", async function (req, res) {
 
     // download Images
     let ddd = batchPromise(converted.pages.map(async (e, i) => {
-        //{ "type": "jpg", "width": 1075, "heigth": 1522, "orientation": "vertical" }
 
         const base_link = "https://i.nhentai.net";
         const url = `${base_link}/galleries/${converted.repo_id}/${i + 1}.${e.type}`;
 
         let fff = await retryFetch(url);
-        return await fff.arrayBuffer();
+        let fff_bufffer = await fff.arrayBuffer();
+
+        let buffer = (converted.pages[i].type !== "gif") ? fff_bufffer : await sharp(fff_bufffer).jpeg().toBuffer();
+
+        return {
+            buffer,
+            ratio: converted.pages[i].ratio
+        }
     }), 5);
 
     let solve = await ddd;
-    console.log(solve);
-
-
-    // let tyys = solve.map(async (e) => {
-    //     let yu = sharp(e);
-
-    //     let metada = await yu.metadata();
-
-    //     return yu.jpeg().toBuffer();
-    // });
-
-    // ddd contanins buffers
-
-    let prev_final = Promise.all(solve.map(async (e, i) => {
-
-        let fggsui = await sharp(e).jpeg().toBuffer();
-
-        return {
-            buffer: fggsui,
-            ratio: converted.pages[i].width / converted.pages[i].heigth
-        }
-    }))
-
-    let jjsj = await prev_final
-    // console.log(jjsj);
-
-    let pdfresult = await createDocument(jjsj);
+    let pdfresult = await createDocument(solve);
     console.log(pdfresult);
 
 
-    res.type("application/pdf")
-    pdfresult.arrayBuffer().then((buf) => {
-        res.send(Buffer.from(buf))
-    })
-
-
+    res.type("application/pdf").send(pdfresult);
 });
+
+app.get("/cover/:repo_id", async function (req, res) {
+    let imageLink = `https://t3.nhentai.net/galleries/${req.params.repo_id}/cover.jpg`;
+    let bufferResponse = await (await fetch(imageLink)).arrayBuffer();
+    res.type("image/jpeg").send(Buffer.from(bufferResponse));
+})
 
 app.listen(port, function () {
     console.log("App has started.");
