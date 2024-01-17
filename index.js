@@ -1,6 +1,5 @@
 import express from "express";
 import sharp from "sharp";
-import { ZenRows } from "zenrows";
 import { load as cheerio } from "cheerio";
 import { JSONFilePreset as createDatabase } from "lowdb/node"
 import createDocument from "./lib/image-to-pdf.js";
