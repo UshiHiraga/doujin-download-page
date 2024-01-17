@@ -15,41 +15,26 @@ app.set("view engine", "ejs");
 app.use(express.static("public"));
 
 async function getInfoFromNhentai(nhentaiUrl) {
-    const client = new ZenRows(process.env.CLOUDFARE_SCRAPER_API_KEY);
-    const { data } = await client.get(nhentaiUrl, { "js_render": "true", "wait_for": "#cover" });
+    const MEDIA_ID_REGEX = /(?<=galleries\/)\d+(?=\/cover)/gm;
+    const PRETTY_TITLE_REGEX = /download (.*?),/
+    const IMAGE_EXTENSION_REGEX = /\w{3}$/;
+    const NORMAL_ID_REGEX = /(?<=\/g\/)\d+(?=\/1\/)/;
 
-    let tree = cheerio(data);
-    let inner = tree("script").toArray();
+    const dataPage = await (await retryFetch(nhentaiUrl)).text();
+    const tree = cheerio(dataPage);
 
-    let script = inner.find((e) => tree(e).text().includes("window._gallery"));
-    let script_text = tree(script).text();
-    script_text = script_text.replace("window._gallery = JSON.parse(\"", "").replace("\");", "");
-    script_text = script_text.replace(/\\u0022/g, "\"").replace(/\n/g, "").replace(/\t/g, "");
-    const original_data = JSON.parse(script_text);
-
-    function extractImageTypeInfo(e) {
-        const IMAGES_EXTENSIONS = {
-            "j": "jpg",
-            "p": "png",
-            "g": "gif"
-        }
-
+    function extractImagesMetadata(e) {
         return {
-            type: IMAGES_EXTENSIONS[e.t] || "jpg",
-            ratio: e.w / e.h
+            type: tree(e).attr("data-src").match(IMAGE_EXTENSION_REGEX)[0],
+            ratio: Number(tree(e).attr("width")) / Number(tree(e).attr("height"))
         };
     };
 
-    function replaceHandler(match) {
-        const unicode_point_hex_value = parseInt(match.replace(/\\u/, ""), 16);
-        return String.fromCodePoint(unicode_point_hex_value);
-    };
-
     return {
-        repo_id: String(original_data.media_id),
-        media_id: String(original_data.id),
-        title: original_data.title.pretty.replace(/\\u[A-Fa-f0-9]{4}/g, replaceHandler),
-        pages: original_data.images.pages.map(extractImageTypeInfo)
+        repo_id: tree("img", "#cover").attr("src").match(MEDIA_ID_REGEX)[0],
+        media_id: tree("a", "#cover").attr("href").match(NORMAL_ID_REGEX)[0],
+        title: tree("meta[name='description']").attr("content").match(PRETTY_TITLE_REGEX)[1],
+        pages: tree("img.lazyload", "#thumbnail-container").toArray().map(extractImagesMetadata)
     }
 }
 
