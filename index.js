@@ -2,13 +2,16 @@ import express from "express";
 import sharp from "sharp";
 import { load as cheerio } from "cheerio";
 import { JSONFilePreset as createDatabase } from "lowdb/node"
+import { BufferString as bufstr } from "./lib/buffer-string.js";
 import createDocument from "./lib/image-to-pdf.js";
 import retryFetch from "./lib/retryable-fetch.js";
 import batchPromise from "./lib/batch-promise.js";
 
 const app = express();
 const port = 3721;
+
 const db = await createDatabase("db.json", {});
+const images = await createDatabase("images.json", {});
 
 app.set("view engine", "ejs");
 app.use(express.static("public"));
@@ -42,36 +45,30 @@ app.get("/", function (req, res) {
 });
 
 app.get(["/g/:code", "/g"], async function (req, res) {
-    const incomingCode = req.params.code || req.query.code;
-    console.log(incomingCode)
-    // Make checking
-
     const ONLY_NUMBER_REGEX = /^[0-9]+$/gm;
     const NHENTAI_URL_CODE = /\d+/gm
     const NHENTAI_URL_FORMAT = /https:\/\/nhentai\.net\/g\/\d+./gm;
 
+    // Make checking
+    const incomingCode = req.params.code || req.query.code;
     let definitiveCode;
     if (ONLY_NUMBER_REGEX.test(incomingCode)) {
         definitiveCode = incomingCode;
     } else if (NHENTAI_URL_FORMAT.test(incomingCode)) {
         definitiveCode = (NHENTAI_URL_CODE.exec(incomingCode))[0];
     } else {
-        return res.send("error");
+        return res.status(400).render("error");
     }
 
     console.log(definitiveCode)
-
-
-
     let dataFromNhentai = "";
-    if (!db.data[definitiveCode]) {
-        console.log("gettin")
-        dataFromNhentai = await getInfoFromNhentai(`https://nhentai.net/g/${definitiveCode}`);
-        db.data[dataFromNhentai.media_id] = dataFromNhentai;
-        await db.write();
-    } else {
-        console.log("exist")
+    if (db.data[definitiveCode]) {
+        console.log("Requested doujin data obtained from local storage.");
         dataFromNhentai = db.data[definitiveCode];
+    } else {
+        console.log("Requested doujin data obtained from internet.");
+        dataFromNhentai = await getInfoFromNhentai(`https://nhentai.to/g/${definitiveCode}`);
+        await db.update((data) => data[dataFromNhentai.media_id] = dataFromNhentai);
     }
 
     res.render("index", { "code": definitiveCode, "result": dataFromNhentai })
@@ -80,10 +77,10 @@ app.get(["/g/:code", "/g"], async function (req, res) {
 app.get("/download/:code", async function (req, res) {
 
     const thisDoujinCode = req.params.code
-
+    const ONLY_NUMBER_REGEX = /^[0-9]+$/gm;
     // Checking info or fetching from hnentai.net
-    if (!db.data[thisDoujinCode]) {
-        console.log("Handle this")
+    if (!ONLY_NUMBER_REGEX.test(thisDoujinCode) || !db.data[thisDoujinCode]) {
+        return res.status(400).render("error");
     }
 
 
@@ -93,11 +90,17 @@ app.get("/download/:code", async function (req, res) {
     // download Images
     let ddd = batchPromise(converted.pages.map(async (e, i) => {
 
-        const base_link = "https://i.nhentai.net";
-        const url = `${base_link}/galleries/${converted.repo_id}/${i + 1}.${e.type}`;
+        const url = `https://i.nhentai.net/galleries/${converted.repo_id}/${i + 1}.${e.type}`;
 
         let fff = await retryFetch(url);
+
+        let xd = fff.clone();
+        let fff_text = await xd.text();
+
         let fff_bufffer = await fff.arrayBuffer();
+
+        console.log(fff_text);
+        console.log(await sharp(fff_bufffer).metadata())
 
         let buffer = (converted.pages[i].type !== "gif") ? fff_bufffer : await sharp(fff_bufffer).jpeg().toBuffer();
 
@@ -109,18 +112,31 @@ app.get("/download/:code", async function (req, res) {
 
     let solve = await ddd;
     let pdfresult = await createDocument(solve);
-    console.log(pdfresult);
 
-
-    res.type("application/pdf").send(pdfresult);
+    res.type("application/pdf").end(pdfresult);
 });
 
-app.get("/cover/:repo_id", async function (req, res) {
-    let imageLink = `https://t3.nhentai.net/galleries/${req.params.repo_id}/cover.jpg`;
-    let bufferResponse = await (await fetch(imageLink)).arrayBuffer();
-    res.type("image/jpeg").send(Buffer.from(bufferResponse));
+app.get("/cover/:repo_id/:format", async function (req, res) {
+    const repo_id = req.params.repo_id;
+    const format = req.params.format;
+
+    let responseImageBuffer = "";
+    if (images.data[repo_id]) {
+        console.log("Requested cover image got from local storage.");
+        responseImageBuffer = bufstr.str2buf(images.data[repo_id]);
+    } else {
+        console.log("Requested cover image got from internet.");
+        const imageLink = `https://t3.nhentai.net/galleries/${repo_id}/1t.${format}`;
+        const bufferResponse = await (await fetch(imageLink)).arrayBuffer();
+        responseImageBuffer = Buffer.from(bufferResponse);
+        await images.update((data) => data[repo_id] = bufstr.buf2str(responseImageBuffer));
+    }
+
+    return res.type("image/*").end(responseImageBuffer);
 })
 
-app.listen(port, function () {
-    console.log("App has started.");
+app.use(function (req, res, next) {
+    res.status(404).render("not_found");
 });
+
+export default app;
