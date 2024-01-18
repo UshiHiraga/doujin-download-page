@@ -29,7 +29,7 @@
             <form action="/download" target="_blank" class="result-doujin">
                 <input type="text" name="code" hidden value="<%=result.media_id%>">
                 <section class="result-doujin__image-holder">
-                    <img src="/cover/<%=result.repo_id%>">
+                    <img src="/cover/<%=result.repo_id%>/<%=result.pages[0].type%>">
                 </section>
                 <section class="result-doujin__info-holder">
                     <%- include("partials/titleDetails", {title: "Title" , detail: result.title}); %>
